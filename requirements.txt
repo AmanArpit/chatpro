@@ -1,0 +1,9 @@
+langchain==0.1.12
+langchain-openai==0.0.8
+langchain-community==0.0.29
+streamlit==1.32.2
+PyMuPDF==1.24.0
+chromadb==0.4.24
+pyngrok==7.1.5
+langchain-google-genai
+pandas
