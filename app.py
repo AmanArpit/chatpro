@@ -19,28 +19,37 @@ os.environ['GOOGLE_API_KEY'] = api_creds['GOOGLE_API_KEY']
 
 # Streamlit UI Setup
 st.set_page_config(page_title="MULTIPDF QA Chatbot", page_icon="🤖")
-st.title("Welcome to MULTIPLEPDF QA RAG Chatbot 🤖")
+st.title("Welcome to MULTIPLE PDF QA RAG Chatbot 🤖")
 
 @st.cache_resource(ttl="1h")
 def configure_retriever(uploaded_files):
-    docs = []
-    temp_dir = tempfile.TemporaryDirectory()
-    
-    for file in uploaded_files:
-        temp_filepath = os.path.join(temp_dir.name, file.name)
-        with open(temp_filepath, "wb") as f:
-            f.write(file.getvalue())
-        loader = PyMuPDFLoader(temp_filepath)
-        docs.extend(loader.load())
-    
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
-    doc_chunks = text_splitter.split_documents(docs)
-    
-    embeddings_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vectordb = Chroma.from_documents(doc_chunks, embeddings_model, persist_directory="./chroma_db")
-    vectordb.persist()
-    
-    return vectordb.as_retriever()
+    try:
+        docs = []
+        temp_dir = tempfile.TemporaryDirectory()
+        
+        for file in uploaded_files:
+            temp_filepath = os.path.join(temp_dir.name, file.name)
+            with open(temp_filepath, "wb") as f:
+                f.write(file.getvalue())
+            loader = PyMuPDFLoader(temp_filepath)
+            docs.extend(loader.load())
+        
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
+        doc_chunks = text_splitter.split_documents(docs)
+        
+        embeddings_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        
+        # Ensure the directory exists
+        persist_dir = "./chroma_db"
+        os.makedirs(persist_dir, exist_ok=True)
+        
+        vectordb = Chroma.from_documents(doc_chunks, embeddings_model, persist_directory=persist_dir)
+        vectordb.persist()
+        
+        return vectordb.as_retriever()
+    except Exception as e:
+        st.error(f"An error occurred while configuring the retriever: {e}")
+        st.stop()
 
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container, initial_text=""):
@@ -57,7 +66,11 @@ if not uploaded_files:
     st.info("Please upload PDF documents to continue.")
     st.stop()
 
-retriever = configure_retriever(uploaded_files)
+try:
+    retriever = configure_retriever(uploaded_files)
+except Exception as e:
+    st.error(f"Failed to configure retriever: {e}")
+    st.stop()
 
 gemini = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.1, streaming=True)
 
